@@ -17,7 +17,7 @@ Environment:
 #include <fltKernel.h>
 #include <dontuse.h>
 
-#include "utils.h"
+#include "init.h"
 #include "filter_callbacks.h"
 
 PFLT_FILTER hFilterObj = NULL;

@@ -10,7 +10,7 @@ FLT_PREOP_CALLBACK_STATUS cbPreCreate(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_OBJ
 	NTSTATUS status;
 	WCHAR Name[200] = { 0 };
 	status = FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &FileNameInfo);
-
+	
 	if (NT_SUCCESS(status)) {
 		status = FltParseFileNameInformation(FileNameInfo);
 		if (NT_SUCCESS(status)) {
@@ -45,7 +45,7 @@ FLT_PREOP_CALLBACK_STATUS cbPreWrite(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_OBJE
 	NTSTATUS status;
 	WCHAR Name[200] = { 0 };
 	status = FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &FileNameInfo);
-
+	
 	if (NT_SUCCESS(status)) {
 		status = FltParseFileNameInformation(FileNameInfo);
 		if (NT_SUCCESS(status)) {

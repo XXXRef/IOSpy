@@ -35,6 +35,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="init.c" />
     <ClCompile Include="utils.c" />
     <ResourceCompile Include="IOSpy.rc" />
     <ClCompile Include="filter_callbacks.c" />
@@ -185,6 +186,7 @@
   <ItemGroup>
     <ClInclude Include="config.h" />
     <ClInclude Include="filter_callbacks.h" />
+    <ClInclude Include="init.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
