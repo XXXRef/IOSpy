@@ -1,0 +1,36 @@
+#Ignore all but folders
+*
+!*/
+
+#Dont ignore EXT folders contents
+!**/EXT/*
+
+#Dont ignore src files
+!*.c
+!*.cx
+!*.cxx
+!*.cpp
+
+#Dont ignore header files
+!*.h
+!*.hx
+!*.hxx
+!*.hpp
+
+#Ignore build stuff
+**/build
+**/BUILD
+**/cmake-build*
+
+#Dont ignore build files
+!CMakeLists*
+
+!.gitignore
+
+!README.md
+
+!*.sln
+!*.vcxproj
+
+!*.reg
+!*.bat
