@@ -6,8 +6,9 @@
 typedef struct _IOSPYConfig {
 	UNICODE_STRING targetProcessName;
 	UNICODE_STRING targetFilePath;
-	UNICODE_STRING logFilePath;
+	UNICODE_STRING symbolicLogFilePath;
 } IOSPYConfig, * PIOSPYConfig;
 
 //cant use bool LOL
 NTSTATUS getConfigurationData(/*in*/PIOSPYConfig cfg);
+

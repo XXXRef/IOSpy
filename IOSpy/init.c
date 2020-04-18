@@ -3,6 +3,8 @@
 #include "config.h"
 #include "utils.h"
 
+#include <ntstrsafe.h>
+
 /*
 typedef struct _IOSPYConfig {
 	UNICODE_STRING targetProcessName;
@@ -43,14 +45,26 @@ NTSTATUS getConfigurationData(/*in*/PIOSPYConfig cfg) {
 	KdPrint(("{IOSpy} [INFO] (getConfigurationData) TARGET FILE PATH: %wZ\n", &cfg->targetFilePath));
 
 	// Get log file path
-	status = getRegWStringValue(handleRegKey, CFG_REG_CFG_FIELDNAME_LOGFILEPATH, &cfg->logFilePath);
+	UNICODE_STRING logFilePath;
+	status = getRegWStringValue(handleRegKey, CFG_REG_CFG_FIELDNAME_LOGFILEPATH, &logFilePath);
 	if (!NT_SUCCESS(status)) {
 		ZwClose(handleRegKey);
 		return status;
 	}
-	KdPrint(("{IOSpy} [INFO] (getConfigurationData) LOG FILE PATH: %wZ\n", &cfg->logFilePath));
-
 	ZwClose(handleRegKey);
+	//Convert to symbolic path by appending \??\ (\DosDevices\);
+	#define SYMBOLIC_PATH_PREFIX L"\\??\\"
+	cfg->symbolicLogFilePath.MaximumLength = (USHORT)(wcslen(SYMBOLIC_PATH_PREFIX) + logFilePath.Length+4); //TODO remote disgusting magic 4
+	cfg->symbolicLogFilePath.Buffer = ExAllocatePoolWithTag(NonPagedPool, cfg->symbolicLogFilePath.MaximumLength, CFG_TAG);
+	if (NULL == cfg->symbolicLogFilePath.Buffer) {
+		return STATUS_MEMORY_NOT_ALLOCATED;
+	}
+	RtlUnicodeStringCopyStringEx(&cfg->symbolicLogFilePath, SYMBOLIC_PATH_PREFIX,NULL, STRSAFE_FILL_BEHIND);
+	//RtlAppendUnicodeStringToString(&cfg->symbolicLogFilePath, &logFilePath);
+	RtlUnicodeStringCbCatStringN(&cfg->symbolicLogFilePath, logFilePath.Buffer, logFilePath.Length);
+	RtlFreeUnicodeString(&logFilePath);
+	KdPrint(("{IOSpy} [INFO] (getConfigurationData) LOG FILE PATH: %wZ\n", &cfg->symbolicLogFilePath));
+	
 
 	return STATUS_SUCCESS;
 }

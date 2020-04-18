@@ -26,6 +26,10 @@ IOSPYConfig IOSpyCfg;
 NTSTATUS cbUnload(FLT_FILTER_UNLOAD_FLAGS Flags) {
 	UNREFERENCED_PARAMETER(Flags);
 
+	RtlFreeUnicodeString(&IOSpyCfg.symbolicLogFilePath);
+	RtlFreeUnicodeString(&IOSpyCfg.targetFilePath);
+	RtlFreeUnicodeString(&IOSpyCfg.targetProcessName);
+
 	KdPrint(("Driver unload \r\n"));
 	FltUnregisterFilter(hFilterObj);
 	return STATUS_SUCCESS;
@@ -44,9 +48,9 @@ typedef struct _FLT_OPERATION_REGISTRATION {
 */
 const FLT_OPERATION_REGISTRATION Callbacks[] = {
 	{IRP_MJ_CREATE,0,cbPreCreate, cbPostCreate}, // File create/open operation handlers
-	{IRP_MJ_SET_INFORMATION,0,cbPreSetInfo,cbPostSetInfo},	 // File write operation handlers
-	{IRP_MJ_WRITE,0,cbPreWrite,cbPostWrite},				 // File write operation handlers
-	{IRP_MJ_CLOSE,0,cbPreClose,cbPostClose},
+	//{IRP_MJ_SET_INFORMATION,0,cbPreSetInfo,cbPostSetInfo},	 // File write operation handlers
+	//{IRP_MJ_WRITE,0,cbPreWrite,cbPostWrite},				 // File write operation handlers
+	//{IRP_MJ_CLOSE,0,cbPreClose,cbPostClose},
 	{IRP_MJ_OPERATION_END}							 // The last element of this array must be {IRP_MJ_OPERATION_END}
 };
 
@@ -99,15 +103,17 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) 
 	//Acquire configuration data
 	status = getConfigurationData(&IOSpyCfg);
 	if (!NT_SUCCESS(status)) {
-		DbgPrint("{IOSpy} [ERROR] __FUNCTION__ Cant get configuration info");
+		DbgPrint("{IOSpy} [ERROR] DriverEntry Cant get configuration info");
 		return status;
 	}
+	
 	//Registering in global list of registered minifilter drivers
 	//Provide Filter Manager with callbacks/additional minifilter driver info
 	status = FltRegisterFilter(DriverObject, &FilterRegistrationObj, &hFilterObj); //IoRegisterFsRegistrationChange as alternative?
 	if (!NT_SUCCESS(status)) {
 		return status;
 	}
+
 	//Begin filtering IO operations
 	status = FltStartFiltering(hFilterObj);
 	if (!NT_SUCCESS(status)) {
