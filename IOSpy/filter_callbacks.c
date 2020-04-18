@@ -18,10 +18,10 @@ extern IOSPYConfig IOSpyCfg;
 FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_OBJECTS FltObjects, PVOID* CompletionContext, FLT_POST_OPERATION_FLAGS Flags) {
 	UNREFERENCED_PARAMETER(CompletionContext);
 	UNREFERENCED_PARAMETER(Flags);
-
+	
 	NTSTATUS status;
-	// Check if its the target case examining process name and file path
-		//Check if operation succeeded
+// Check if its the target case examining process name and file path
+	//Check if operation succeeded
 	if (!NT_SUCCESS(Data->IoStatus.Status)) {
 		//DbgPrint("Operation failed: 0x%X", Data->IoStatus.Status);
 		return FLT_POSTOP_FINISHED_PROCESSING;
@@ -42,16 +42,14 @@ FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_
 			//DbgPrint("process name compare: target process name found: %wZ!", &requestorProcName);
 		}
 	}
-
-	//Acquire data
-		// Get file name
-
+	
+	// Check if right file name
 	PFLT_FILE_NAME_INFORMATION FileNameInfo;
 #define MAX_FILE_PATH_LENGTH 600
 	WCHAR Name[MAX_FILE_PATH_LENGTH];
 	status = FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &FileNameInfo);
 	if (!NT_SUCCESS(status)) {
-		DbgPrint("{IOSpy} [ERROR] cbPostCreate FltGetFileNameInformation failed. Status: %X", status);
+		//DbgPrint("{IOSpy} [ERROR] cbPostCreate FltGetFileNameInformation failed. Status: %X", status);
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
 	status = FltParseFileNameInformation(FileNameInfo);
@@ -67,14 +65,25 @@ FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_
 		//KdPrint(("Create file: %ws \r\n", Name));
 	}
 	FltReleaseFileNameInformation(FileNameInfo);
-
+	
+	POBJECT_NAME_INFORMATION oni;
+	status=IoQueryFileDosDeviceName(Data->Iopb->TargetFileObject, &oni);
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("{IOSpy} [INFO] cbPostCreate IoQueryFileDosDeviceName failed");
+		return FLT_POSTOP_FINISHED_PROCESSING;
+	}
+	if (TRUE!=RtlEqualUnicodeString(&oni->Name,&IOSpyCfg.targetFilePath,TRUE)) {
+		// Its not target file
+		return FLT_POSTOP_FINISHED_PROCESSING;
+	}
+	ExFreePool(oni);
 	// Get TID
 	HANDLE requestorThreadID = PsGetThreadId(Data->Thread);
 	// Get FileObject
 	PFILE_OBJECT pTargetFileObject = Data->Iopb->TargetFileObject;
 	#define MAX_LOG_RECORD_LENGTH 1000
 	WCHAR logRecord[MAX_LOG_RECORD_LENGTH];
-	//Process IO op according to its type
+//Process IO op according to its type
 	switch (Data->Iopb->MajorFunction) {
 	case IRP_MJ_CREATE: {
 		// Get info whether file created or opened
@@ -96,7 +105,6 @@ FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_
 	default:
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
-
 	
 	// Save data in log file
 	DbgPrint("%ws", logRecord);
