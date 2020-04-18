@@ -76,18 +76,29 @@ NTSTATUS filterLog(PFLT_FILTER hFilterObj, PCFLT_RELATED_OBJECTS FltObjects, PUN
 		OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
 		NULL,
 		NULL);
-	status = FltCreateFile(hFilterObj, FltObjects->Instance, &hFile, GENERIC_WRITE, &attr,                        /* ObjectAttributes  */
-		&io_status_block,             /* IoStatusBlock     */
-		NULL,                         /* AllocationSize    */
-		FILE_ATTRIBUTE_NORMAL,        /* FileAttributes    */
-		FILE_SHARE_READ |             /* ShareAccess       */
-		FILE_SHARE_WRITE |
-		FILE_SHARE_DELETE,
-		FILE_OPEN,                    /* CreateDisposition */
-		FILE_SYNCHRONOUS_IO_NONALERT, /* CreateOptions     */
-		NULL,                         /* EaBuffer          */
-		0,                            /* EaLength          */
-		0);       /* Flags             */
+
+	status = FltCreateFileEx(hFilterObj, FltObjects->Instance, &hFile, &fileObj, FILE_GENERIC_WRITE | FILE_WRITE_DATA, &attr, &io_status_block, NULL,
+		FILE_ATTRIBUTE_NORMAL,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		FILE_OPEN_IF,
+		FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_ALERT,
+		NULL,
+		0,
+		IO_IGNORE_SHARE_ACCESS_CHECK);
+	
+	//status = FltCreateFile(hFilterObj, FltObjects->Instance, &hFile, GENERIC_WRITE, &attr,                        /* ObjectAttributes  */
+	//	&io_status_block,             /* IoStatusBlock     */
+	//	NULL,                         /* AllocationSize    */
+	//	FILE_ATTRIBUTE_NORMAL,        /* FileAttributes    */
+	//	FILE_SHARE_READ |             /* ShareAccess       */
+	//	FILE_SHARE_WRITE |
+	//	FILE_SHARE_DELETE,
+	//	FILE_OPEN,                    /* CreateDisposition */
+	//	FILE_SYNCHRONOUS_IO_NONALERT, /* CreateOptions     */
+	//	NULL,                         /* EaBuffer          */
+	//	0,                            /* EaLength          */
+	//	0);       /* Flags             */
+	//	
 	if (!NT_SUCCESS(status)) {
 		DbgPrint("{IOSpy} [ERROR] filterLog FltCreateFile failed. Status: %X", status);
 		return status;
@@ -110,7 +121,7 @@ NTSTATUS filterLog(PFLT_FILTER hFilterObj, PCFLT_RELATED_OBJECTS FltObjects, PUN
 	LARGE_INTEGER ByteOffset;
 	ByteOffset.HighPart = -1;
 	ByteOffset.LowPart = FILE_WRITE_TO_END_OF_FILE;
-	status = FltWriteFile(FltObjects->Instance, fileObj, &ByteOffset, (ULONG)(wcslen(pLogBuffer) * sizeof(WCHAR)), (WCHAR*)pLogBuffer, FLTFL_IO_OPERATION_DO_NOT_UPDATE_BYTE_OFFSET | FLTFL_IO_OPERATION_NON_CACHED, NULL, NULL, NULL);
+	status = FltWriteFile(FltObjects->Instance, fileObj, &ByteOffset, (ULONG)(wcslen(pLogBuffer) * sizeof(WCHAR)), (WCHAR*)pLogBuffer, 0, NULL, NULL, NULL);
 	if (!NT_SUCCESS(status)) {
 		DbgPrint("{IOSpy} [ERROR] filterLog FltWriteFile failed. Status: %X", status);
 		FltClose(hFile);
