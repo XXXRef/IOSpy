@@ -47,10 +47,11 @@ typedef struct _FLT_OPERATION_REGISTRATION {
 } FLT_OPERATION_REGISTRATION, * PFLT_OPERATION_REGISTRATION;
 */
 const FLT_OPERATION_REGISTRATION Callbacks[] = {
-	{IRP_MJ_CREATE,0,NULL, cbPostHandler}, // File create/open operation handlers
-	{IRP_MJ_WRITE,0,NULL, cbPostHandler},				 // File write operation handlers
-	{IRP_MJ_SET_INFORMATION,0,NULL, cbPostHandler},	 // File set_info operation handlers
-	{IRP_MJ_CLOSE,0,NULL, cbPostHandler},
+	{IRP_MJ_CREATE,0,cbPreHandler, cbPostHandler}, // File create/open operation handlers
+	{IRP_MJ_WRITE,0,cbPreHandler, cbPostHandler},				 // File write operation handlers
+	{IRP_MJ_SET_INFORMATION,0,cbPreHandler, cbPostHandler},	 // File set_info operation handlers
+	{IRP_MJ_CLOSE,0,cbPreHandler, cbPostHandler},
+	{IRP_MJ_CLEANUP,0,cbPreHandler, cbPostHandler},
 	{IRP_MJ_OPERATION_END}							 // The last element of this array must be {IRP_MJ_OPERATION_END}
 };
 

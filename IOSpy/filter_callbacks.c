@@ -2,6 +2,7 @@
 
 #include "utils.h"
 #include "init.h"
+#include "config.h"
 
 #include <ntstrsafe.h>
 #include <Ntddk.h>
@@ -15,15 +16,101 @@ extern PFLT_FILTER hFilterObj;
 extern IOSPYConfig IOSpyCfg;
 
 //====================================================================================================
+FLT_PREOP_CALLBACK_STATUS cbPreHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_OBJECTS FltObjects, PVOID* CompletionContext) {
+	UNREFERENCED_PARAMETER(FltObjects);
+	
+	NTSTATUS status;
+	
+	// We retrieve name information in "pre" for every operation except IRP_MJ_CREATE
+	// For IRP_MJ_CREATE, we do it in post
+	if (IRP_MJ_CREATE == Data->Iopb->MajorFunction) { 
+		return FLT_PREOP_SUCCESS_WITH_CALLBACK; 
+	}
+	//Filter needed IRPs
+	if ((Data->Iopb->MajorFunction!= IRP_MJ_WRITE) && (Data->Iopb->MajorFunction != IRP_MJ_SET_INFORMATION) && (Data->Iopb->MajorFunction != IRP_MJ_CLOSE) && (Data->Iopb->MajorFunction != IRP_MJ_CLEANUP)){
+		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+	}
+	//Get file name
+	PFLT_FILE_NAME_INFORMATION FileNameInfo;
+	status = FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &FileNameInfo);
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("{IOSpy} [ERROR] cbPreHandler FltGetFileNameInformation failed. Status: %X ", status);
+		return FLT_PREOP_SUCCESS_NO_CALLBACK;
+	}
+	status = FltParseFileNameInformation(FileNameInfo);
+	if (!NT_SUCCESS(status)) {
+		DbgPrint("{IOSpy} [ERROR] cbPreHandler FltParseFileNameInformation failed. Status: %X", status);
+		FltReleaseFileNameInformation(FileNameInfo);
+		return FLT_PREOP_SUCCESS_NO_CALLBACK;
+	}
+	//Pass name to postop callback
+	WCHAR* Name=ExAllocatePoolWithTag(NonPagedPool, (SIZE_T)FileNameInfo->Name.Length + 2, CFG_TAG);
+	if (Name == NULL) {
+		FltReleaseFileNameInformation(FileNameInfo);
+		return FLT_PREOP_SUCCESS_NO_CALLBACK;
+	}
+	RtlCopyMemory(Name, FileNameInfo->Name.Buffer, FileNameInfo->Name.Length);
+	Name[FileNameInfo->Name.Length/sizeof(WCHAR)] = L'\0';
+	FltReleaseFileNameInformation(FileNameInfo);
+	DbgPrint("{IOSpy} [INFO] cbPreHandler MJ:%d Name:%ws", Data->Iopb->MajorFunction, Name);
+	
+	*CompletionContext = (PVOID)Name;
+	
+	return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+}
+
+//====================================================================================================
 FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_OBJECTS FltObjects, PVOID* CompletionContext, FLT_POST_OPERATION_FLAGS Flags) {
-	UNREFERENCED_PARAMETER(CompletionContext);
 	UNREFERENCED_PARAMETER(Flags);
 	
 	NTSTATUS status;
+	
+	WCHAR* Name;
+
+	//Filter needed IRPs
+	if ((Data->Iopb->MajorFunction != IRP_MJ_CREATE) && (Data->Iopb->MajorFunction != IRP_MJ_WRITE) && (Data->Iopb->MajorFunction != IRP_MJ_SET_INFORMATION) && (Data->Iopb->MajorFunction != IRP_MJ_CLOSE) && (Data->Iopb->MajorFunction != IRP_MJ_CLEANUP)) {
+		return FLT_POSTOP_FINISHED_PROCESSING;
+	}
+
+	//if IRP_MJ_CREATE => get file name in postop callback
+	if (IRP_MJ_CREATE == Data->Iopb->MajorFunction) {
+		//CompletionContext==0 => no need to free
+		PFLT_FILE_NAME_INFORMATION FileNameInfo;
+		status = FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &FileNameInfo);
+		if (!NT_SUCCESS(status)) {
+			DbgPrint("{IOSpy} [ERROR] cbPostHandler FltGetFileNameInformation failed. MJ=%d Status: %X ", Data->Iopb->MajorFunction, status);
+			return FLT_POSTOP_FINISHED_PROCESSING;
+		}
+		status = FltParseFileNameInformation(FileNameInfo);
+		if (!NT_SUCCESS(status)) {
+			DbgPrint("{IOSpy} [ERROR] cbPostHandler FltParseFileNameInformation failed. MJ=%d Status: %X", Data->Iopb->MajorFunction, status);
+			FltReleaseFileNameInformation(FileNameInfo);
+			return FLT_POSTOP_FINISHED_PROCESSING;
+		}
+		Name = ExAllocatePoolWithTag(NonPagedPool, (SIZE_T)FileNameInfo->Name.Length + 2, CFG_TAG);
+		if (Name == NULL) {
+			FltReleaseFileNameInformation(FileNameInfo);
+			return FLT_POSTOP_FINISHED_PROCESSING;
+		}
+		RtlCopyMemory(Name, FileNameInfo->Name.Buffer, FileNameInfo->Name.Length);
+		Name[FileNameInfo->Name.Length / sizeof(WCHAR)] = L'\0';
+		FltReleaseFileNameInformation(FileNameInfo);
+	}else {
+		//Get name from CompletionContext
+		if (CompletionContext == NULL) {
+			return FLT_POSTOP_FINISHED_PROCESSING;
+		}
+
+		//UNREFERENCED_PARAMETER(CompletionContext);
+		//Name = NULL;
+		Name = (WCHAR*)CompletionContext;
+	}
+	DbgPrint("{IOSpy} [INFO] cbPostHandler MJ=%d Name:%ws", Data->Iopb->MajorFunction, Name);
 // Check if its the target case examining process name and file path
 	//Check if operation succeeded
-	if (!NT_SUCCESS(Data->IoStatus.Status)) {
+	if (TRUE!=NT_SUCCESS(Data->IoStatus.Status)) {
 		//DbgPrint("Operation failed: 0x%X", Data->IoStatus.Status);
+		ExFreePool(Name);
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
 	//Check if right process
@@ -34,8 +121,11 @@ FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_
 		SeLocateProcessImageName(pRequestorEP, &pImageFileName);
 		UNICODE_STRING requestorProcName = getFileNameFromFilePath(*pImageFileName);
 		//DbgPrint("requestorImageFileName: %wZ", requestorProcName);
-		if (FALSE == RtlEqualUnicodeString(&requestorProcName, &IOSpyCfg.targetProcessName, TRUE)) {
+		BOOLEAN procNameCmpResult = RtlEqualUnicodeString(&requestorProcName, &IOSpyCfg.targetProcessName, TRUE);
+		ExFreePool(pImageFileName);
+		if (FALSE == procNameCmpResult) {
 			//DbgPrint("process name compare: %wZ != %wZ", requestorProcName, IOSpyCfg.targetProcessName);
+			ExFreePool(Name);
 			return FLT_POSTOP_FINISHED_PROCESSING;
 		}
 		else {
@@ -44,36 +134,17 @@ FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_
 	}
 	
 	// Check if right file name
-	PFLT_FILE_NAME_INFORMATION FileNameInfo;
-#define MAX_FILE_PATH_LENGTH 600
-	WCHAR Name[MAX_FILE_PATH_LENGTH];
-	status = FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &FileNameInfo);
-	if (!NT_SUCCESS(status)) {
-		//DbgPrint("{IOSpy} [ERROR] cbPostCreate FltGetFileNameInformation failed. Status: %X", status);
-		return FLT_POSTOP_FINISHED_PROCESSING;
-	}
-	status = FltParseFileNameInformation(FileNameInfo);
-	if (!NT_SUCCESS(status)) {
-		DbgPrint("{IOSpy} [ERROR] cbPostCreate FltParseFileNameInformation failed. Status: %X", status);
-		FltReleaseFileNameInformation(FileNameInfo);
-		return FLT_POSTOP_FINISHED_PROCESSING;
-	}
-	//TODO Allocate mem for name
-	if (FileNameInfo->Name.MaximumLength < MAX_FILE_PATH_LENGTH) {
-		RtlCopyMemory(Name, FileNameInfo->Name.Buffer, FileNameInfo->Name.MaximumLength);
-		Name[FileNameInfo->Name.MaximumLength] = L'\0';
-		//KdPrint(("Create file: %ws \r\n", Name));
-	}
-	FltReleaseFileNameInformation(FileNameInfo);
-	
 	POBJECT_NAME_INFORMATION oni;
 	status=IoQueryFileDosDeviceName(Data->Iopb->TargetFileObject, &oni);
 	if (!NT_SUCCESS(status)) {
-		DbgPrint("{IOSpy} [INFO] cbPostCreate IoQueryFileDosDeviceName failed");
+		DbgPrint("{IOSpy} [INFO] cbPostHandler IoQueryFileDosDeviceName failed");
+		ExFreePool(Name);
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
 	if (TRUE!=RtlEqualUnicodeString(&oni->Name,&IOSpyCfg.targetFilePath,TRUE)) {
 		// Its not target file
+		ExFreePool(oni);
+		ExFreePool(Name);
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
 	ExFreePool(oni);
@@ -102,10 +173,14 @@ FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_
 	case IRP_MJ_CLOSE: {
 		swprintf(logRecord, L"[CLOSE_FILE] FilePath:%ws PID:%X TID:%p FileObject:%p\n\0", Name, requestorPID, requestorThreadID, pTargetFileObject);
 	} break;
+	case IRP_MJ_CLEANUP: {
+		swprintf(logRecord, L"[CLEANUP_FILE] FilePath:%ws PID:%X TID:%p FileObject:%p\n\0", Name, requestorPID, requestorThreadID, pTargetFileObject);
+	} break;
 	default:
+		ExFreePool(Name);
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
-	
+	ExFreePool(Name);
 	// Save data in log file
 	DbgPrint("%ws", logRecord);
 	filterLog(hFilterObj, FltObjects, &IOSpyCfg.symbolicLogFilePath, logRecord);
