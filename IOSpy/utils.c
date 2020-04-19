@@ -101,7 +101,9 @@ NTSTATUS filterLog(PFLT_FILTER hFilterObj, PCFLT_RELATED_OBJECTS FltObjects, PUN
 	//	0);       /* Flags             */
 	//	
 	if (!NT_SUCCESS(status)) {
+#ifdef _DEBUG
 		DbgPrint("{IOSpy} [ERROR] filterLog FltCreateFile failed. Status: %X", status);
+#endif
 		return status;
 	}
 	// Get file object object
@@ -113,7 +115,9 @@ NTSTATUS filterLog(PFLT_FILTER hFilterObj, PCFLT_RELATED_OBJECTS FltObjects, PUN
 		(PVOID*)& fileObj,      //Object
 		NULL);                  //HandleInformation</pre>
 	if (!NT_SUCCESS(status)) {
+#ifdef _DEBUG
 		DbgPrint("{IOSpy} [ERROR] filterLog ObReferenceObjectByHandle failed. Status: %X", status);
+#endif
 		return status;
 	}
 	// Write file
@@ -124,7 +128,9 @@ NTSTATUS filterLog(PFLT_FILTER hFilterObj, PCFLT_RELATED_OBJECTS FltObjects, PUN
 	ByteOffset.LowPart = FILE_WRITE_TO_END_OF_FILE;
 	status = FltWriteFile(FltObjects->Instance, fileObj, &ByteOffset, (ULONG)(wcslen(pLogBuffer) * sizeof(WCHAR)), (WCHAR*)pLogBuffer, 0, NULL, NULL, NULL);
 	if (!NT_SUCCESS(status)) {
+#ifdef _DEBUG
 		DbgPrint("{IOSpy} [ERROR] filterLog FltWriteFile failed. Status: %X", status);
+#endif
 		FltClose(hFile);
 		return status;
 	}

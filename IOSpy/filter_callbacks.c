@@ -104,7 +104,9 @@ FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_
 		//Name = NULL;
 		Name = (WCHAR*)CompletionContext;
 	}
+#ifdef _DEBUG
 	DbgPrint("{IOSpy} [INFO] cbPostHandler MJ=%d Name:%ws", Data->Iopb->MajorFunction, Name);
+#endif
 // Check if its the target case examining process name and file path
 	//Check if operation succeeded
 	if (TRUE!=NT_SUCCESS(Data->IoStatus.Status)) {
@@ -136,7 +138,9 @@ FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_
 	POBJECT_NAME_INFORMATION oni;
 	status=IoQueryFileDosDeviceName(Data->Iopb->TargetFileObject, &oni);
 	if (!NT_SUCCESS(status)) {
+#ifdef _DEBUG
 		DbgPrint("{IOSpy} [INFO] cbPostHandler IoQueryFileDosDeviceName failed");
+#endif
 		ExFreePool(Name);
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
