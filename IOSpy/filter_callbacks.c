@@ -26,10 +26,6 @@ FLT_PREOP_CALLBACK_STATUS cbPreHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_OB
 	if (IRP_MJ_CREATE == Data->Iopb->MajorFunction) { 
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK; 
 	}
-	//Filter needed IRPs
-	if ((Data->Iopb->MajorFunction!= IRP_MJ_WRITE) && (Data->Iopb->MajorFunction != IRP_MJ_SET_INFORMATION) && (Data->Iopb->MajorFunction != IRP_MJ_CLOSE) && (Data->Iopb->MajorFunction != IRP_MJ_CLEANUP)){
-		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
-	}
 	//Get file name
 	PFLT_FILE_NAME_INFORMATION FileNameInfo;
 	status = FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &FileNameInfo);
@@ -66,11 +62,6 @@ FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_
 	NTSTATUS status;
 	
 	WCHAR* Name;
-
-	//Filter needed IRPs
-	if ((Data->Iopb->MajorFunction != IRP_MJ_CREATE) && (Data->Iopb->MajorFunction != IRP_MJ_WRITE) && (Data->Iopb->MajorFunction != IRP_MJ_SET_INFORMATION) && (Data->Iopb->MajorFunction != IRP_MJ_CLOSE) && (Data->Iopb->MajorFunction != IRP_MJ_CLEANUP)) {
-		return FLT_POSTOP_FINISHED_PROCESSING;
-	}
 
 	//if IRP_MJ_CREATE => get file name in postop callback
 	if (IRP_MJ_CREATE == Data->Iopb->MajorFunction) {
