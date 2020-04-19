@@ -34,7 +34,9 @@ NTSTATUS getConfigurationData(/*in*/PIOSPYConfig cfg) {
 		ZwClose(handleRegKey);
 		return status;
 	}
+#ifdef _DEBUG
 	KdPrint(("{IOSpy} [INFO] (getConfigurationData) TARGET PROCESS NAME: %wZ\n", &cfg->targetProcessName));
+#endif
 
 	// Get target file path
 	status = getRegWStringValue(handleRegKey, CFG_REG_CFG_FIELDNAME_TARGETFILEPATH, &cfg->targetFilePath);
@@ -42,7 +44,9 @@ NTSTATUS getConfigurationData(/*in*/PIOSPYConfig cfg) {
 		ZwClose(handleRegKey);
 		return status;
 	}
+#ifdef _DEBUG
 	KdPrint(("{IOSpy} [INFO] (getConfigurationData) TARGET FILE PATH: %wZ\n", &cfg->targetFilePath));
+#endif
 
 	// Get log file path
 	UNICODE_STRING logFilePath;
@@ -63,7 +67,9 @@ NTSTATUS getConfigurationData(/*in*/PIOSPYConfig cfg) {
 	//RtlAppendUnicodeStringToString(&cfg->symbolicLogFilePath, &logFilePath);
 	RtlUnicodeStringCbCatStringN(&cfg->symbolicLogFilePath, logFilePath.Buffer, logFilePath.Length);
 	RtlFreeUnicodeString(&logFilePath);
-	KdPrint(("{IOSpy} [INFO] (getConfigurationData) LOG FILE PATH: %wZ\n", &cfg->symbolicLogFilePath));
+#ifdef _DEBUG
+	KdPrint(("{IOSpy} [INFO] getConfigurationData LOG FILE PATH: %wZ\n", &cfg->symbolicLogFilePath));
+#endif
 	
 
 	return STATUS_SUCCESS;

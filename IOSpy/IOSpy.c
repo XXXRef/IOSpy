@@ -29,8 +29,9 @@ NTSTATUS cbUnload(FLT_FILTER_UNLOAD_FLAGS Flags) {
 	RtlFreeUnicodeString(&IOSpyCfg.symbolicLogFilePath);
 	RtlFreeUnicodeString(&IOSpyCfg.targetFilePath);
 	RtlFreeUnicodeString(&IOSpyCfg.targetProcessName);
-
-	KdPrint(("Driver unload \r\n"));
+#ifdef _DEBUG
+	KdPrint(("{IOSpy} cbUnload Driver unload \r\n"));
+#endif
 	FltUnregisterFilter(hFilterObj);
 	return STATUS_SUCCESS;
 }
@@ -98,13 +99,17 @@ const FLT_REGISTRATION FilterRegistrationObj = {
 NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 	UNREFERENCED_PARAMETER(RegistryPath);
 
+#ifdef _DEBUG
 	DbgPrint("{IOSpy} [INFO] BEGIN DriverEntry");
+#endif
 
 	NTSTATUS status;
 	//Acquire configuration data
 	status = getConfigurationData(&IOSpyCfg);
 	if (!NT_SUCCESS(status)) {
+#ifdef _DEBUG
 		DbgPrint("{IOSpy} [ERROR] DriverEntry Cant get configuration info");
+#endif
 		return status;
 	}
 	

@@ -55,6 +55,7 @@ NTSTATUS getRegWStringValue(HANDLE handleRegKey, PCWSTR valueName, PUNICODE_STRI
 	// Get the key data
 	status = ZwQueryValueKey(handleRegKey, &ValueName, KeyValueFullInformation, pKeyInfo, ulKeyInfoSize, &ulKeyInfoSizeNeeded);
 	if ((status != STATUS_SUCCESS) || (ulKeyInfoSizeNeeded != ulKeyInfoSize) || (NULL == pKeyInfo)) {
+		ExFreePoolWithTag(pKeyInfo, GETREGWSTRINGVALUE_TAG);
 		return STATUS_APP_INIT_FAILURE;
 	}
 	RtlCreateUnicodeString(pResultWStr, (PWSTR)((PBYTE)pKeyInfo + pKeyInfo->DataOffset)); // RtlCreateUnicodeString copies unlike RtlInitUnicodeString
