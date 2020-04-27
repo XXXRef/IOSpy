@@ -106,20 +106,6 @@ NTSTATUS filterLog(PFLT_FILTER hFilterObj, PCFLT_RELATED_OBJECTS FltObjects, PUN
 #endif
 		return status;
 	}
-	// Get file object object
-	status = ObReferenceObjectByHandle(
-		hFile,                 //Handle
-		0,                      //DesiredAccess
-		NULL,                   //ObjectType
-		KernelMode,             //AccessMode
-		(PVOID*)& fileObj,      //Object
-		NULL);                  //HandleInformation</pre>
-	if (!NT_SUCCESS(status)) {
-#ifdef _DEBUG
-		DbgPrint("{IOSpy} [ERROR] filterLog ObReferenceObjectByHandle failed. Status: %X", status);
-#endif
-		return status;
-	}
 	// Write file
 	//#define  BUFFER_SIZE 8
 	//CHAR     buffer[]="DEADBEEF";
@@ -131,10 +117,12 @@ NTSTATUS filterLog(PFLT_FILTER hFilterObj, PCFLT_RELATED_OBJECTS FltObjects, PUN
 #ifdef _DEBUG
 		DbgPrint("{IOSpy} [ERROR] filterLog FltWriteFile failed. Status: %X", status);
 #endif
+		ObDereferenceObject(fileObj);
 		FltClose(hFile);
 		return status;
 	}
 
+	ObDereferenceObject(fileObj);
 	FltClose(hFile);
 
 	return STATUS_SUCCESS;

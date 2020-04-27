@@ -62,6 +62,7 @@ FLT_PREOP_CALLBACK_STATUS cbPreHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_OB
 
 //====================================================================================================
 FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_OBJECTS FltObjects, PVOID* CompletionContext, FLT_POST_OPERATION_FLAGS Flags) {
+	//TODO Some routines require certain IRQL. IRQL checking/changing is not implemented for now => potential BSOD with err_code "IRQL_NOT_LESS_OR_EQUAL"
 	UNREFERENCED_PARAMETER(Flags);
 	
 	NTSTATUS status;
@@ -136,7 +137,7 @@ FLT_POSTOP_CALLBACK_STATUS cbPostHandler(PFLT_CALLBACK_DATA Data, PCFLT_RELATED_
 	
 	// Check if right file name
 	POBJECT_NAME_INFORMATION oni;
-	status=IoQueryFileDosDeviceName(Data->Iopb->TargetFileObject, &oni);
+	status=IoQueryFileDosDeviceName(Data->Iopb->TargetFileObject, &oni); // Get filename in form: "<Drive letter>:\..."
 	if (!NT_SUCCESS(status)) {
 #ifdef _DEBUG
 		DbgPrint("{IOSpy} [INFO] cbPostHandler IoQueryFileDosDeviceName failed");

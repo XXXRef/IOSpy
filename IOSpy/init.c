@@ -70,7 +70,6 @@ NTSTATUS getConfigurationData(/*in*/PIOSPYConfig cfg) {
 #ifdef _DEBUG
 	KdPrint(("{IOSpy} [INFO] getConfigurationData LOG FILE PATH: %wZ\n", &cfg->symbolicLogFilePath));
 #endif
-	
 
 	return STATUS_SUCCESS;
 }
